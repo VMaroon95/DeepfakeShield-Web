@@ -1,0 +1,1 @@
+# Brand logos directory for visual phishing detection

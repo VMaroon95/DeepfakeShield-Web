@@ -7,12 +7,18 @@ export default function MediaAnalyzer({ onResult }: { onResult: (r: any) => void
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const [fileType, setFileType] = useState<string>("image");
 
   const handleFile = useCallback(async (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      alert("Please upload an image (JPEG, PNG, WebP, GIF)");
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+    
+    if (!isImage && !isVideo) {
+      alert("Please upload an image (JPEG, PNG, WebP, GIF) or video (MP4, MOV, WebM)");
       return;
     }
+    
+    setFileType(isVideo ? "video" : "image");
     setPreview(URL.createObjectURL(file));
     setLoading(true);
     onResult(null);
@@ -58,24 +64,36 @@ export default function MediaAnalyzer({ onResult }: { onResult: (r: any) => void
       >
         {preview ? (
           <div className="relative">
-            <img src={preview} alt="Preview" className="max-h-64 mx-auto rounded-2xl object-cover" />
+            {fileType === "image" ? (
+              <img src={preview} alt="Preview" className="max-h-64 mx-auto rounded-2xl object-cover" />
+            ) : (
+              <video 
+                src={preview} 
+                controls 
+                className="max-h-64 mx-auto rounded-2xl"
+                style={{ maxWidth: "100%" }}
+              />
+            )}
             {loading && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-2xl">
                 <div className="flex flex-col items-center gap-3">
                   <div className="w-8 h-8 border-3 border-[#D0BCFF] border-t-transparent rounded-full animate-spin" />
-                  <span className="text-[#D0BCFF] text-sm font-medium">Analyzing...</span>
+                  <span className="text-[#D0BCFF] text-sm font-medium">
+                    {fileType === "video" ? "Extracting frames..." : "Analyzing..."}
+                  </span>
                 </div>
               </div>
             )}
           </div>
         ) : (
           <>
-            <div className="text-5xl mb-4">📂</div>
+            <div className="text-5xl mb-4">🎬</div>
             <p className="text-[#E6E1E5] font-semibold mb-1">
-              Drop an image here or click to browse
+              Drop media here or click to browse
             </p>
             <p className="text-[#938F99] text-sm">
-              JPEG, PNG, WebP, GIF • Max 20MB
+              Images: JPEG, PNG, WebP, GIF (Max 20MB)<br/>
+              Videos: MP4, MOV, WebM (Max 100MB)
             </p>
           </>
         )}
@@ -83,7 +101,7 @@ export default function MediaAnalyzer({ onResult }: { onResult: (r: any) => void
       <input
         id="file-input"
         type="file"
-        accept="image/*"
+        accept="image/*,video/*"
         onChange={onPick}
         className="hidden"
       />

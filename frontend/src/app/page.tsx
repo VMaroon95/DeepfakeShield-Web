@@ -4,8 +4,9 @@ import MediaAnalyzer from "@/components/MediaAnalyzer";
 import LinkScanner from "@/components/LinkScanner";
 import ForensicReport from "@/components/ForensicReport";
 import LinkReport from "@/components/LinkReport";
+import ThreatFeed from "@/components/ThreatFeed";
 
-type Tab = "media" | "links";
+type Tab = "media" | "links" | "threats";
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>("media");
@@ -15,18 +16,21 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#1C1B1F] text-[#E6E1E5]">
       {/* Header */}
-      <div className="max-w-3xl mx-auto px-6 pt-12 pb-6">
+      <div className="max-w-4xl mx-auto px-6 pt-12 pb-6">
         <div className="flex items-center gap-3 mb-2">
           <span className="text-4xl">🛡️</span>
           <h1 className="text-3xl font-extrabold tracking-tight">DeepfakeShield</h1>
+          <span className="text-xs bg-[#4F378B]/30 text-[#D0BCFF] px-2 py-1 rounded-full font-medium">
+            v2.0
+          </span>
         </div>
         <p className="text-[#CAC4D0] text-sm">
-          Verify media authenticity & scan links for scams — 100% private, no data stored.
+          Advanced Scam & Phishing Detection Suite — Media analysis, link scanning, and threat intelligence.
         </p>
       </div>
 
       {/* Tab switcher */}
-      <div className="max-w-3xl mx-auto px-6 mb-8">
+      <div className="max-w-4xl mx-auto px-6 mb-8">
         <div className="flex gap-2 bg-[#2B2930] rounded-2xl p-1.5">
           <TabButton
             active={tab === "media"}
@@ -40,11 +44,17 @@ export default function Home() {
             icon="🔗"
             label="Link Checker"
           />
+          <TabButton
+            active={tab === "threats"}
+            onClick={() => setTab("threats")}
+            icon="🚨"
+            label="Threat Feed"
+          />
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-3xl mx-auto px-6 pb-20">
+      <div className="max-w-4xl mx-auto px-6 pb-20">
         {tab === "media" && (
           <>
             <MediaAnalyzer onResult={setMediaResult} />
@@ -57,6 +67,7 @@ export default function Home() {
             {linkResult && <LinkReport result={linkResult} />}
           </>
         )}
+        {tab === "threats" && <ThreatFeed />}
       </div>
 
       {/* Footer */}

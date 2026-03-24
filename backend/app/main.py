@@ -1,15 +1,15 @@
 """
-DeepfakeShield Web — FastAPI Backend
-Handles media upload (deepfake detection) and URL scanning (phishing/scam).
+DeepfakeShield Web — Advanced Scam & Phishing Detection Suite
+Handles media upload (deepfake detection), URL scanning, and threat reporting.
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import media, links
+from app.routers import media, links, reports
 
 app = FastAPI(
     title="DeepfakeShield API",
-    description="Deepfake detection + Link safety scanning",
-    version="1.0.0",
+    description="Advanced Scam & Phishing Detection Suite - Deepfake detection, Link scanning, and Threat intelligence",
+    version="2.0.0",
 )
 
 app.add_middleware(
@@ -22,8 +22,20 @@ app.add_middleware(
 
 app.include_router(media.router, prefix="/api/media", tags=["Media Analysis"])
 app.include_router(links.router, prefix="/api/links", tags=["Link Scanner"])
+app.include_router(reports.router, prefix="/api/reports", tags=["Threat Reports"])
 
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "service": "DeepfakeShield API", "version": "1.0.0"}
+    return {"status": "ok", "service": "DeepfakeShield API", "version": "2.0.0"}
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database on startup."""
+    try:
+        from app.engine.scam_db import init_database
+        await init_database()
+        print("✅ Scam database initialized")
+    except Exception as e:
+        print(f"⚠️  Database initialization failed: {e}")

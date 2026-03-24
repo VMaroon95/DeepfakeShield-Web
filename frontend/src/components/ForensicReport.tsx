@@ -82,13 +82,93 @@ export default function ForensicReport({ result }: { result: any }) {
         </div>
       </Section>
 
+      {/* Video-specific analysis */}
+      {result.is_video && (
+        <Section title="Multi-Frame Analysis" accent="bg-[#CCC2DC]">
+          <div className="bg-[#2B2930] rounded-2xl p-5">
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <span className="text-xs text-[#938F99]">Average Frame Score</span>
+                <div className="text-xl font-bold text-[#E6E1E5]">{result.avg_frame_score?.toFixed(1) || 'N/A'}</div>
+              </div>
+              <div>
+                <span className="text-xs text-[#938F99]">Consistency Score</span>
+                <div className="text-xl font-bold text-[#E6E1E5]">{result.consistency_score || 'N/A'}</div>
+              </div>
+            </div>
+            
+            {result.frame_results && (
+              <div className="space-y-2">
+                <span className="text-sm font-medium text-[#CAC4D0]">Frame-by-Frame Analysis</span>
+                <div className="space-y-2">
+                  {result.frame_results.map((frame: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between py-2 px-3 bg-[#36343B] rounded-lg">
+                      <span className="text-sm text-[#CAC4D0]">Frame {frame.frame_number}</span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-16 h-2 rounded-full bg-[#49454F] overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${
+                              frame.score <= 30 ? "bg-green-400" : 
+                              frame.score <= 50 ? "bg-blue-400" :
+                              frame.score <= 75 ? "bg-amber-400" : "bg-red-400"
+                            }`}
+                            style={{ width: `${frame.score}%` }}
+                          />
+                        </div>
+                        <span className="text-sm font-medium text-[#E6E1E5] w-8">{frame.score}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </Section>
+      )}
+
+      {/* GAN Analysis (if available) */}
+      {result.gan_analysis && (
+        <Section title="GAN Fingerprinting" accent="bg-[#F2B8B5]">
+          <div className="bg-[#2B2930] rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-semibold text-[#E6E1E5]">Frequency Domain Analysis</span>
+              <span className="text-xl font-bold text-[#E6E1E5]">{result.gan_analysis.gan_score}/100</span>
+            </div>
+            <div className="h-2 rounded-full bg-[#49454F] overflow-hidden mb-3">
+              <div
+                className={`h-full rounded-full ${
+                  result.gan_analysis.gan_score <= 20 ? "bg-green-400" : 
+                  result.gan_analysis.gan_score <= 40 ? "bg-blue-400" :
+                  result.gan_analysis.gan_score <= 65 ? "bg-amber-400" : "bg-red-400"
+                }`}
+                style={{ width: `${result.gan_analysis.gan_score}%` }}
+              />
+            </div>
+            <p className="text-[#938F99] text-sm">{result.gan_analysis.verdict_label}</p>
+            {result.gan_analysis.indicators && result.gan_analysis.indicators.length > 0 && (
+              <div className="mt-3 space-y-1">
+                {result.gan_analysis.indicators.map((indicator: string, i: number) => (
+                  <div key={i} className="text-xs text-[#CAC4D0]">• {indicator}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Section>
+      )}
+
       {/* Metadata */}
       <Section title="File Metadata" accent="bg-[#EFB8C8]">
         <div className="bg-[#2B2930] rounded-2xl p-5">
-          {[
-            ["📐", "Dimensions", `${result.metadata?.width}×${result.metadata?.height}`],
+          {result.is_video ? [
+            ["🎬", "Type", "Video"],
+            ["📊", "Frames Analyzed", result.metadata?.frames_analyzed],
+            ["📁", "File Size", `${result.file_size_mb} MB`],
+            ["🧬", "Model", result.model_version],
+            ["⏱️", "Processing", `${result.processing_ms}ms`],
+          ] : [
+            ["📐", "Dimensions", result.metadata ? `${result.metadata?.width}×${result.metadata?.height}` : 'N/A'],
             ["📄", "Format", result.metadata?.format],
-            ["💾", "File Size", `${result.metadata?.size_kb} KB`],
+            ["💾", "File Size", result.metadata ? `${result.metadata?.size_kb} KB` : `${result.file_size_mb} MB`],
             ["🧬", "Model", result.model_version],
             ["⏱️", "Processing", `${result.processing_ms}ms`],
           ].map(([icon, label, val], i) => (

@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  deepfakeshield:
+    build: .
+    ports:
+      - "8000:8000"  # Backend API
+      - "3000:3000"  # Frontend
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      - ./backend/data:/app/backend/data  # Persist SQLite database
+      - ./backend/app/engine/brand_logos:/app/backend/app/engine/brand_logos  # Brand logos
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Development override - uncomment for development mode
+  # deepfakeshield-dev:
+  #   profiles: ["dev"]
+  #   build:
+  #     context: .
+  #     target: backend-builder
+  #   ports:
+  #     - "8000:8000"
+  #   volumes:
+  #     - ./backend:/app/backend
+  #     - ./backend/data:/app/backend/data
+  #   environment:
+  #     - PYTHONPATH=/app/backend
+  #   command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+  #   working_dir: /app/backend
+
+  # frontend-dev:
+  #   profiles: ["dev"]
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile.dev
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ./frontend:/app
+  #     - /app/node_modules
+  #   environment:
+  #     - NEXT_PUBLIC_API_URL=http://localhost:8000
+
+networks:
+  default:
+    name: deepfakeshield-network
+
+volumes:
+  scam_data:
+    name: deepfakeshield-data

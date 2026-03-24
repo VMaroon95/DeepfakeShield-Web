@@ -1,14 +1,18 @@
 """
-DeepfakeDetector — Image forensic analysis engine.
+DeepfakeDetector — Image and Video forensic analysis engine.
 
 Uses ONNX Runtime with EfficientNet for inference.
+Supports multi-frame video analysis and GAN noise fingerprinting.
 Falls back to heuristic analysis when no model is loaded.
 """
 import io
 import time
+import tempfile
+import subprocess
 import numpy as np
 from PIL import Image
 from pathlib import Path
+from app.engine.gan_detector import analyze_gan_artifacts
 
 MODEL_INPUT_SIZE = 224
 MODEL_PATH = Path(__file__).parent.parent.parent / "models" / "deepfake_detector.onnx"
@@ -63,12 +67,17 @@ def get_image_metadata(image_bytes: bytes) -> dict:
     }
 
 
-async def analyze(image_bytes: bytes) -> dict:
+async def analyze(image_bytes: bytes, is_video: bool = False) -> dict:
     """
-    Run deepfake analysis on image bytes.
+    Run deepfake analysis on image or video bytes.
     Returns structured forensic report.
     """
     start = time.time()
+    
+    if is_video:
+        return await analyze_video(image_bytes)
+    
+    # Image analysis
     metadata = get_image_metadata(image_bytes)
 
     session = _load_model()
@@ -87,6 +96,12 @@ async def analyze(image_bytes: bytes) -> dict:
         model_version = "heuristic-v1.0 (simulated)"
         is_simulated = True
 
+    # ── GAN NOISE FINGERPRINTING ──
+    gan_analysis = analyze_gan_artifacts(image_bytes)
+    
+    # Combine deepfake score with GAN analysis
+    combined_score = int((score + gan_analysis.get("gan_score", 0)) / 2)
+    
     elapsed_ms = int((time.time() - start) * 1000)
 
     # Forensic markers
@@ -94,15 +109,25 @@ async def analyze(image_bytes: bytes) -> dict:
         markers = _simulated_markers()
     else:
         markers = _model_markers(score)
+    
+    # Add GAN analysis markers
+    markers.append({
+        "id": "gan_fingerprinting",
+        "label": "GAN Noise Analysis",
+        "score": gan_analysis.get("gan_score", 0),
+        "status": "pass" if gan_analysis.get("gan_score", 0) < 25 else "warn" if gan_analysis.get("gan_score", 0) < 50 else "fail",
+        "detail": f"Frequency domain analysis: {gan_analysis.get('verdict_label', 'No anomalies')}",
+        "weight": 0.3
+    })
 
-    # Verdict
-    if score <= 30:
+    # Use combined score for final verdict
+    if combined_score <= 30:
         verdict = "likely_real"
         verdict_label = "✅ Likely Real"
-    elif score <= 50:
+    elif combined_score <= 50:
         verdict = "low_confidence"
         verdict_label = "🔵 Inconclusive"
-    elif score <= 75:
+    elif combined_score <= 75:
         verdict = "suspicious"
         verdict_label = "⚠️ Suspicious"
     else:
@@ -113,26 +138,195 @@ async def analyze(image_bytes: bytes) -> dict:
     integrity = [
         {"label": "EXIF Metadata", "status": "pass" if metadata["has_exif"] else "info",
          "detail": f"{metadata['exif_fields']} fields found" if metadata["has_exif"] else "No EXIF data present"},
-        {"label": "Compression Analysis", "status": "warn" if score > 60 else "pass",
-         "detail": "Possible double-compression" if score > 60 else "Single compression layer"},
+        {"label": "Compression Analysis", "status": "warn" if combined_score > 60 else "pass",
+         "detail": "Possible double-compression" if combined_score > 60 else "Single compression layer"},
         {"label": "File Signature", "status": "pass",
          "detail": f"Valid {metadata['format']} header"},
-        {"label": "Pixel Coherence", "status": "fail" if score > 75 else "warn" if score > 50 else "pass",
-         "detail": "Anomalous patterns detected" if score > 75 else "Within normal range"},
+        {"label": "Pixel Coherence", "status": "fail" if combined_score > 75 else "warn" if combined_score > 50 else "pass",
+         "detail": "Anomalous patterns detected" if combined_score > 75 else "Within normal range"},
+        {"label": "GAN Fingerprinting", "status": "pass" if gan_analysis.get("gan_score", 0) < 40 else "fail",
+         "detail": f"Frequency analysis: {gan_analysis.get('verdict', 'natural')}"},
     ]
 
     return {
-        "score": score,
+        "score": combined_score,
+        "deepfake_score": score,
+        "gan_score": gan_analysis.get("gan_score", 0),
         "verdict": verdict,
         "verdict_label": verdict_label,
         "markers": markers,
         "metadata": metadata,
         "integrity": integrity,
+        "gan_analysis": gan_analysis,
         "model_version": model_version,
         "is_simulated": is_simulated,
         "processing_ms": elapsed_ms,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
+
+
+async def analyze_video(video_bytes: bytes) -> dict:
+    """
+    Run multi-frame deepfake analysis on video bytes.
+    Extract 5 keyframes and analyze consistency across frames.
+    """
+    start = time.time()
+    
+    try:
+        # Save video to temporary file
+        with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_video:
+            temp_video.write(video_bytes)
+            temp_video_path = temp_video.name
+        
+        # Extract 5 keyframes using ffmpeg
+        keyframes_dir = tempfile.mkdtemp()
+        keyframe_pattern = f"{keyframes_dir}/frame_%03d.jpg"
+        
+        # Run ffmpeg to extract frames
+        ffmpeg_cmd = [
+            'ffmpeg', '-i', temp_video_path,
+            '-vf', 'select=eq(pict_type\\,I)',
+            '-vsync', 'vfr',
+            '-frames:v', '5',
+            '-q:v', '2',
+            keyframe_pattern,
+            '-y'  # Overwrite output files
+        ]
+        
+        result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, timeout=30)
+        
+        if result.returncode != 0:
+            return {
+                "error": "Failed to extract video frames",
+                "ffmpeg_error": result.stderr,
+                "score": 50,
+                "verdict": "error",
+                "verdict_label": "❌ Analysis Error"
+            }
+        
+        # Analyze each extracted frame
+        frame_results = []
+        frame_scores = []
+        
+        for i in range(1, 6):  # frames 001-005
+            frame_path = f"{keyframes_dir}/frame_{i:03d}.jpg"
+            frame_file = Path(frame_path)
+            
+            if frame_file.exists():
+                with open(frame_path, 'rb') as f:
+                    frame_bytes = f.read()
+                
+                # Analyze this frame
+                frame_analysis = await analyze(frame_bytes, is_video=False)
+                frame_results.append({
+                    "frame_number": i,
+                    "score": frame_analysis.get("score", 0),
+                    "deepfake_score": frame_analysis.get("deepfake_score", 0),
+                    "gan_score": frame_analysis.get("gan_score", 0),
+                    "verdict": frame_analysis.get("verdict", "unknown")
+                })
+                frame_scores.append(frame_analysis.get("score", 0))
+        
+        # Cleanup temporary files
+        import shutil
+        try:
+            Path(temp_video_path).unlink()
+            shutil.rmtree(keyframes_dir)
+        except:
+            pass
+        
+        if not frame_scores:
+            return {
+                "error": "No frames could be extracted from video",
+                "score": 50,
+                "verdict": "error", 
+                "verdict_label": "❌ No Frames Extracted"
+            }
+        
+        # Calculate consistency metrics
+        avg_score = np.mean(frame_scores)
+        score_variance = np.var(frame_scores)
+        score_std = np.std(frame_scores)
+        max_score = max(frame_scores)
+        min_score = min(frame_scores)
+        score_range = max_score - min_score
+        
+        # Consistency score based on variance across frames
+        # Low variance = more consistent = less likely to be deepfake
+        # High variance = inconsistent = potentially problematic
+        consistency_penalty = min(score_range * 2, 40)  # Penalize high variance
+        
+        final_score = int(avg_score + consistency_penalty)
+        final_score = min(final_score, 100)
+        
+        # Generate video metadata
+        video_metadata = {
+            "frames_analyzed": len(frame_scores),
+            "duration_estimate": "unknown",  # Would need additional ffprobe call
+            "avg_frame_score": round(avg_score, 1),
+            "score_variance": round(score_variance, 2),
+            "score_std": round(score_std, 2),
+            "score_range": score_range,
+            "consistency_penalty": consistency_penalty
+        }
+        
+        # Video-specific integrity checks
+        integrity = [
+            {"label": "Frame Extraction", "status": "pass",
+             "detail": f"Successfully extracted {len(frame_scores)} keyframes"},
+            {"label": "Temporal Consistency", "status": "pass" if score_range < 30 else "warn" if score_range < 60 else "fail",
+             "detail": f"Score variance: {score_range} points across frames"},
+            {"label": "Multi-Frame Analysis", "status": "pass" if avg_score < 50 else "fail",
+             "detail": f"Average deepfake probability: {avg_score:.1f}%"},
+            {"label": "Keyframe Quality", "status": "pass",
+             "detail": f"Analyzed {len(frame_scores)} I-frames successfully"}
+        ]
+        
+        # Video verdict
+        if final_score <= 30:
+            verdict = "likely_real"
+            verdict_label = "✅ Likely Real Video"
+        elif final_score <= 50:
+            verdict = "low_confidence"
+            verdict_label = "🔵 Inconclusive"
+        elif final_score <= 75:
+            verdict = "suspicious"
+            verdict_label = "⚠️ Suspicious Video"
+        else:
+            verdict = "likely_synthetic"
+            verdict_label = "🔴 Likely Deepfake Video"
+        
+        elapsed_ms = int((time.time() - start) * 1000)
+        
+        return {
+            "score": final_score,
+            "avg_frame_score": avg_score,
+            "consistency_score": 100 - consistency_penalty,  # Higher is better
+            "verdict": verdict,
+            "verdict_label": verdict_label,
+            "frame_results": frame_results,
+            "metadata": video_metadata,
+            "integrity": integrity,
+            "is_video": True,
+            "model_version": "multi-frame-v2.0",
+            "processing_ms": elapsed_ms,
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+        
+    except subprocess.TimeoutExpired:
+        return {
+            "error": "Video processing timed out",
+            "score": 50,
+            "verdict": "error",
+            "verdict_label": "❌ Processing Timeout"
+        }
+    except Exception as e:
+        return {
+            "error": f"Video analysis failed: {str(e)}",
+            "score": 50,
+            "verdict": "error",
+            "verdict_label": "❌ Analysis Error"
+        }
 
 
 def _simulated_markers():
