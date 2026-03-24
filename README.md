@@ -1,75 +1,72 @@
-# 🛡️ DeepfakeShield Web
+# 🛡️ DeepfakeShield-Web v2.0
 
-**Verify media authenticity & scan links for scams — all in one platform.**
+**Advanced Scam & Phishing Detection Suite** — Verify media authenticity, scan links for scams, and contribute to community threat intelligence. 100% private, zero-trust by default.
 
-> Is this video fake? Is this link a scam? Find out instantly.
+## Features
 
-## 🚀 Quick Start
+### 🔗 Scam Shield (Link Scanner)
+- Typosquatting detection (amaz0n, paypa1, etc.)
+- WHOIS domain age check (flags < 30 days old)
+- SSL certificate validation
+- Visual phishing detection via headless browser screenshots
+- Google Safe Browsing API integration (optional)
+- Community scam database cross-reference
 
+### 🔍 Deepfake Shield (Media Analyzer)
+- Image forensic analysis with EfficientNet model
+- Multi-frame video analysis (extracts 5 keyframes)
+- GAN noise fingerprinting (DCT/FFT frequency analysis)
+- Metadata integrity checks
+
+### 🚨 Threat Intelligence
+- Community-driven scam reporting
+- Auto-blocking after 3+ reports
+- Real-time threat feed dashboard
+
+## Quick Start
+
+### Local Development
 ```bash
 # Backend
 cd backend
-python3 -m venv venv && source venv/bin/activate
-pip install fastapi uvicorn python-multipart pillow numpy onnxruntime aiofiles httpx
-uvicorn app.main:app --port 8000
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+playwright install chromium
+mkdir -p data
+uvicorn app.main:app --reload
 
 # Frontend (new terminal)
 cd frontend
-npm install && npm run dev
+npm install
+npm run dev
 ```
 
-Open http://localhost:3000
-
-## 🔍 Features
-
-### Deepfake Scanner
-- Drag & drop any image
-- 6-point forensic analysis
-- Risk score (0-100) with verdict gauge
-- Digital integrity checks (EXIF, compression, pixel coherence)
-- Full forensic report export
-
-### Link Checker
-- Paste any suspicious URL
-- 7-point security scan:
-  - Typosquatting detection (amaz0n, paypa1, etc.)
-  - Suspicious TLD flagging
-  - Phishing pattern matching
-  - HTTPS verification
-  - IP address detection
-  - Subdomain analysis
-  - Google Safe Browsing API (when configured)
-
-## 🏗️ Architecture
-
-```
-DeepfakeShield-Web/
-├── frontend/          # Next.js + Tailwind (Material You dark)
-│   └── src/
-│       ├── app/       # Pages
-│       └── components/
-│           ├── MediaAnalyzer.tsx    # Drag & drop upload
-│           ├── LinkScanner.tsx      # URL input
-│           ├── ForensicReport.tsx   # Media results
-│           └── LinkReport.tsx       # Link results
-├── backend/           # FastAPI (Python)
-│   └── app/
-│       ├── engine/
-│       │   ├── deepfake_detector.py  # ONNX inference
-│       │   └── link_scanner.py       # URL analysis
-│       └── routers/
-│           ├── media.py    # POST /api/media/analyze
-│           └── links.py    # POST /api/links/scan
-└── models/            # ONNX model files
+### Docker
+```bash
+docker-compose up --build
 ```
 
-## 🔒 Privacy
+## Deployment
 
-- No data stored on server
-- No accounts required
-- Models run locally
-- Open source — audit the code
+### Frontend → Vercel
+1. Import `frontend/` folder in Vercel
+2. Set env var: `NEXT_PUBLIC_API_URL` = your Railway backend URL
+3. Deploy
+
+### Backend → Railway
+1. Create new project in Railway
+2. Point to this repo, set root directory to `backend/`
+3. Railway auto-detects the Dockerfile
+4. Set env var: `CORS_ORIGINS` = your Vercel frontend URL
+5. Deploy
+
+## Tech Stack
+- **Frontend**: Next.js 15, Tailwind CSS, Material You dark theme
+- **Backend**: FastAPI, Python, Playwright, SQLite
+- **Analysis**: EfficientNet (ONNX), FFT/DCT frequency analysis, perceptual hashing
 
 ## Author
+**Varun Meda** — [GitHub](https://github.com/VMaroon95) | [LinkedIn](https://linkedin.com/in/varunmeda1)
 
-**Varun Meda** — [GitHub](https://github.com/VMaroon95) · [LinkedIn](https://linkedin.com/in/varunmeda1)
+## License
+MIT

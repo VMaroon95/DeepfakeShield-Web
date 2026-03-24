@@ -2,6 +2,7 @@
 DeepfakeShield Web — Advanced Scam & Phishing Detection Suite
 Handles media upload (deepfake detection), URL scanning, and threat reporting.
 """
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import media, links, reports
@@ -12,9 +13,20 @@ app = FastAPI(
     version="2.0.0",
 )
 
+# Build allowed origins from env or defaults
+_extra_origins = os.environ.get("CORS_ORIGINS", "").split(",")
+_origins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    # Vercel production + preview domains
+    "https://deepfakeshield-web.vercel.app",
+    "https://*.vercel.app",
+] + [o.strip() for o in _extra_origins if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_origins=_origins,
+    allow_origin_regex=r"https://deepfakeshield-web.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
