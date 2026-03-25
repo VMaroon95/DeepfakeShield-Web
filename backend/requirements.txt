@@ -8,3 +8,5 @@ python-whois>=0.9.4
 imagehash>=4.3.1
 playwright>=1.50.0
 aiosqlite>=0.20.0
+# TFLite — install on Python <=3.12 (not yet available for 3.14)
+# tflite-runtime>=2.14.0; python_version < "3.13"

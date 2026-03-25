@@ -14,47 +14,37 @@ export default function Home() {
   const [linkResult, setLinkResult] = useState<any>(null);
 
   return (
-    <main className="min-h-screen bg-[#1C1B1F] text-[#E6E1E5]">
+    <main className="min-h-screen bg-gradient-animated text-[#E6E1E5]">
       {/* Header */}
-      <div className="max-w-4xl mx-auto px-6 pt-12 pb-6">
+      <div className="max-w-3xl mx-auto px-6 pt-12 pb-6">
         <div className="flex items-center gap-3 mb-2">
-          <span className="text-4xl">🛡️</span>
-          <h1 className="text-3xl font-extrabold tracking-tight">DeepfakeShield</h1>
-          <span className="text-xs bg-[#4F378B]/30 text-[#D0BCFF] px-2 py-1 rounded-full font-medium">
-            v2.0
-          </span>
+          <div className="relative">
+            <span className="text-4xl">🛡️</span>
+            <div className="absolute -inset-2 bg-[#D0BCFF]/10 rounded-full blur-xl" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-[#D0BCFF] to-[#EFB8C8] bg-clip-text text-transparent">
+              DeepfakeShield
+            </h1>
+            <p className="text-[#938F99] text-xs tracking-widest uppercase">Zero-Trust Detection Suite</p>
+          </div>
         </div>
-        <p className="text-[#CAC4D0] text-sm">
-          Advanced Scam & Phishing Detection Suite — Media analysis, link scanning, and threat intelligence.
+        <p className="text-[#CAC4D0] text-sm mt-3">
+          Verify media authenticity, scan links for scams & track threats — 100% private.
         </p>
       </div>
 
-      {/* Tab switcher */}
-      <div className="max-w-4xl mx-auto px-6 mb-8">
-        <div className="flex gap-2 bg-[#2B2930] rounded-2xl p-1.5">
-          <TabButton
-            active={tab === "media"}
-            onClick={() => setTab("media")}
-            icon="🔍"
-            label="Deepfake Scanner"
-          />
-          <TabButton
-            active={tab === "links"}
-            onClick={() => setTab("links")}
-            icon="🔗"
-            label="Link Checker"
-          />
-          <TabButton
-            active={tab === "threats"}
-            onClick={() => setTab("threats")}
-            icon="🚨"
-            label="Threat Feed"
-          />
+      {/* Tab switcher — glassmorphism */}
+      <div className="max-w-3xl mx-auto px-6 mb-8">
+        <div className="flex gap-2 glass rounded-2xl p-1.5">
+          <TabButton active={tab === "media"} onClick={() => setTab("media")} icon="🔍" label="Verify Media" />
+          <TabButton active={tab === "links"} onClick={() => setTab("links")} icon="🔗" label="Link Shield" />
+          <TabButton active={tab === "threats"} onClick={() => setTab("threats")} icon="🚨" label="Threat Feed" />
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto px-6 pb-20">
+      <div className="max-w-3xl mx-auto px-6 pb-20">
         {tab === "media" && (
           <>
             <MediaAnalyzer onResult={setMediaResult} />
@@ -72,10 +62,10 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="text-center py-8 text-[#938F99] text-xs">
-        <p>DeepfakeShield • 100% Private • No Data Stored</p>
+        <p>DeepfakeShield v2.0 • Zero-Trust • No Data Stored</p>
         <p className="mt-1">
-          <a href="https://github.com/VMaroon95/DeepfakeShield" className="hover:text-[#D0BCFF] transition">
-            github.com/VMaroon95/DeepfakeShield
+          <a href="https://github.com/VMaroon95/DeepfakeShield-Web" className="hover:text-[#D0BCFF] transition">
+            github.com/VMaroon95/DeepfakeShield-Web
           </a>
         </p>
       </footer>
@@ -91,8 +81,8 @@ function TabButton({ active, onClick, icon, label }: {
       onClick={onClick}
       className={`flex-1 py-3 px-4 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2
         ${active
-          ? "bg-[#4F378B] text-[#D0BCFF] shadow-lg"
-          : "text-[#CAC4D0] hover:bg-[#36343B]"
+          ? "glass-accent text-[#D0BCFF] shadow-lg glow-purple"
+          : "text-[#CAC4D0] hover:bg-white/5"
         }`}
     >
       <span>{icon}</span>

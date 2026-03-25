@@ -6,6 +6,9 @@ __pycache__/
 .env
 .env.local
 models/*.onnx
+models/*.tflite
+**/models/*.onnx
+**/models/*.tflite
 backend/data/*.db
 *.sqlite3
 

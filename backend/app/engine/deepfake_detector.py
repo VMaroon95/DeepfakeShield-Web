@@ -13,11 +13,12 @@ import numpy as np
 from PIL import Image
 from pathlib import Path
 from app.engine.gan_detector import analyze_gan_artifacts
+from app.engine.tflite_runner import run_inference as tflite_inference, is_available as tflite_available
 
 MODEL_INPUT_SIZE = 224
-MODEL_PATH = Path(__file__).parent.parent.parent / "models" / "deepfake_detector.onnx"
+MODEL_PATH_ONNX = Path(__file__).parent.parent.parent / "models" / "deepfake_detector.onnx"
 
-# Try loading ONNX Runtime
+# Try loading ONNX Runtime (fallback if TFLite unavailable)
 try:
     import onnxruntime as ort
     HAS_ONNX = True
@@ -27,13 +28,13 @@ except ImportError:
 _session = None
 
 
-def _load_model():
+def _load_onnx_model():
     global _session
     if _session is not None:
         return _session
-    if HAS_ONNX and MODEL_PATH.exists():
-        _session = ort.InferenceSession(str(MODEL_PATH))
-        print(f"[DeepfakeDetector] Model loaded: {MODEL_PATH}")
+    if HAS_ONNX and MODEL_PATH_ONNX.exists():
+        _session = ort.InferenceSession(str(MODEL_PATH_ONNX))
+        print(f"[DeepfakeDetector] ONNX model loaded: {MODEL_PATH_ONNX}")
         return _session
     return None
 
@@ -80,21 +81,31 @@ async def analyze(image_bytes: bytes, is_video: bool = False) -> dict:
     # Image analysis
     metadata = get_image_metadata(image_bytes)
 
-    session = _load_model()
-    if session:
-        # ── REAL MODEL INFERENCE ──
-        input_data = preprocess_image(image_bytes)
-        input_name = session.get_inputs()[0].name
-        output = session.run(None, {input_name: input_data})
-        fake_prob = float(output[0][0][0]) if len(output[0].shape) > 1 else float(output[0][0])
-        score = int(fake_prob * 100)
-        model_version = "onnx-efficientnet-v1"
-        is_simulated = False
+    # ── INFERENCE CHAIN: TFLite → ONNX → Heuristic ──
+    if tflite_available():
+        tflite_result = tflite_inference(image_bytes)
+        if tflite_result.get("score") is not None:
+            score = tflite_result["score"]
+            model_version = f"tflite-efficientnet-lite0 (raw={tflite_result['raw_output']})"
+            is_simulated = False
+        else:
+            score = int(np.random.uniform(5, 35))
+            model_version = "heuristic-v1.0 (tflite-fallback)"
+            is_simulated = True
     else:
-        # ── HEURISTIC SIMULATION ──
-        score = int(np.random.uniform(5, 35))
-        model_version = "heuristic-v1.0 (simulated)"
-        is_simulated = True
+        session = _load_onnx_model()
+        if session:
+            input_data = preprocess_image(image_bytes)
+            input_name = session.get_inputs()[0].name
+            output = session.run(None, {input_name: input_data})
+            fake_prob = float(output[0][0][0]) if len(output[0].shape) > 1 else float(output[0][0])
+            score = int(fake_prob * 100)
+            model_version = "onnx-efficientnet-v1"
+            is_simulated = False
+        else:
+            score = int(np.random.uniform(5, 35))
+            model_version = "heuristic-v1.0 (simulated)"
+            is_simulated = True
 
     # ── GAN NOISE FINGERPRINTING ──
     gan_analysis = analyze_gan_artifacts(image_bytes)
