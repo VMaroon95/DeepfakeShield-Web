@@ -8,3 +8,23 @@ __pycache__/
 models/*.onnx
 backend/data/*.db
 *.sqlite3
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Test media files
+*.mp4
+*.mov
+*.webm
+*.avi
+*.mkv
+
+# IDE
+.vscode/
+.idea/
+
+# Misc
+*.log
+*.swp
+*.swo
